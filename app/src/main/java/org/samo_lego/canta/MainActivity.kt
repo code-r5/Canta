@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -16,10 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.lsposed.hiddenapibypass.HiddenApiBypass
-import org.samo_lego.canta.extension.getInfoForPackage
 import org.samo_lego.canta.ui.CantaApp
 import org.samo_lego.canta.ui.theme.CantaTheme
 import org.samo_lego.canta.util.ShizukuPackageInstallerUtils
