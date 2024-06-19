@@ -3,24 +3,29 @@ package org.samo_lego.canta
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.ApplicationInfo
-import android.content.pm.IPackageInstaller
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import org.samo_lego.canta.extension.getInfoForPackage
 import org.samo_lego.canta.ui.CantaApp
 import org.samo_lego.canta.ui.theme.CantaTheme
 import org.samo_lego.canta.util.ShizukuPackageInstallerUtils
 import rikka.shizuku.Shizuku
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 const val SHIZUKU_PACKAGE_NAME = "moe.shizuku.privileged.api"
 const val APP_NAME = "Canta"
@@ -37,80 +42,63 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    CantaApp(
-                        launchShizuku = {
-                            // Open shizuku app
-                            val launchIntent =
-                                packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE_NAME)
-                            startActivity(launchIntent)
-                        },
-                        uninstallApp = { uninstallApp(it) },
-                        reinstallApp = { reinstallApp(it) },
-                    )
+                    Column {
+                        CantaApp(
+                            launchShizuku = {
+                                // Open shizuku app
+                                val launchIntent =
+                                    packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE_NAME)
+                                startActivity(launchIntent)
+                            },
+                            uninstallApp = { uninstallApp(it) },
+                            reinstallApp = { reinstallApp(it) },
+                        )
+                        ADBTerminal()
+                    }
                 }
             }
         }
     }
 
+    @Composable
+    fun ADBTerminal() {
+        var command by remember { mutableStateOf("") }
+        var output by remember { mutableStateOf("") }
 
-    /*fun handleCall() {
-        val method = ""
-        when (method) {
-            "checkShizukuActive" -> {
-
-
+        Column(modifier = Modifier.padding(16.dp)) {
+            TextField(
+                value = command,
+                onValueChange = { command = it },
+                label = { Text("Enter ADB Command") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = { executeADBCommand(command) { result -> output = result } }) {
+                Text("Execute")
             }
-
-            "checkShizukuPermission" -> result.success(checkShizukuPermission())
-            "launchShizuku" -> {
-                // Open shizuku app
-                val launchIntent =
-                    packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE_NAME)
-                startActivity(launchIntent)
-            }
-
-            "uninstallApp" -> {
-                val packageName = call.argument<String>("packageName")!!
-                Log.i(APP_NAME, "Uninstalling '$packageName'")
-                result.success(uninstallApp(packageName))
-            }
-
-            "reinstallApp" -> {
-                val packageName = call.argument<String>("packageName")!!
-                Log.i(APP_NAME, "Installing '$packageName'")
-                result.success(reinstallApp(packageName))
-            }
-
-            "getAppInfo" -> {
-                val packageName = call.argument<String>("packageName")!!
-                val packageManager = packageManager
-                Log.i(APP_NAME, "Getting info for '$packageName'")
-                val packageInfo = getInfoForPackage(packageName, packageManager)
-                val appInfo =
-                    AppInfo.fromPackageInfo(packageInfo, packageManager, BLOAT_LIST)
-                result.success(appInfo.toMap())
-            }
-
-            "getUninstalledApps" -> {
-                Log.i(APP_NAME, "Getting uninstalled apps ...")
-                result.success(getUninstalledPackages())
-            }
-
-            "getInstalledAppsInfo" -> {
-                Log.i(APP_NAME, "Getting installed apps info ...")
-                result.success(getInstalledAppsInfo())
-            }
-
-            else -> result.notImplemented()
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = output)
         }
-    }*/
+    }
 
+    private fun executeADBCommand(command: String, callback: (String) -> Unit) {
+        try {
+            val process = Runtime.getRuntime().exec(command)
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val output = StringBuilder()
+            var line: String? = reader.readLine()
+            while (line != null) {
+                output.append(line).append("\n")
+                line = reader.readLine()
+            }
+            process.waitFor()
+            callback(output.toString())
+        } catch (e: Exception) {
+            e.printStackTrace()
+            callback("Error executing command: ${e.message}")
+        }
+    }
 
-    /**
-     * Uninstalls app using Shizuku.
-     * See <a href="https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/services/core/java/com/android/server/pm/PackageManagerShellCommand.java;drc=bcb2b436bde55ee40050400783a9c083e77ce2fe;l=2144">PackageManagerShellCommand.java</a>
-     * @param packageName package name of the app to uninstall
-     */
     private fun uninstallApp(packageName: String): Boolean {
         val broadcastIntent = Intent("org.samo_lego.canta.UNINSTALL_RESULT_ACTION")
         val intent = PendingIntent.getBroadcast(
@@ -139,7 +127,6 @@ class MainActivity : ComponentActivity() {
                     Int::class.javaPrimitiveType,
                     PendingIntent::class.java
                 ).invoke(packageInstaller, packageName, flags, intent)
-                //packageInstaller.uninstall(packageName, flags, intent.intentSender)
             } else {
                 HiddenApiBypass.invoke(
                     PackageInstaller::class.java,
@@ -157,11 +144,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Reinstalls app using Shizuku.
-     * See <a href="https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/services/core/java/com/android/server/pm/PackageManagerShellCommand.java;drc=bcb2b436bde55ee40050400783a9c083e77ce2fe;l=1408>PackageManagerShellCommand.java</a>
-     * @param packageName package name of the app to reinstall (must preinstalled on the phone)
-     */
     private fun reinstallApp(packageName: String): Boolean {
         val installReason = PackageManager.INSTALL_REASON_UNKNOWN
         val broadcastIntent = Intent("org.samo_lego.canta.INSTALL_RESULT_ACTION")
@@ -177,7 +159,7 @@ class MainActivity : ComponentActivity() {
 
         return try {
             HiddenApiBypass.invoke(
-                IPackageInstaller::class.java,
+                PackageInstaller::class.java,
                 ShizukuPackageInstallerUtils.getPrivilegedPackageInstaller(),
                 "installExistingPackage",
                 packageName,
