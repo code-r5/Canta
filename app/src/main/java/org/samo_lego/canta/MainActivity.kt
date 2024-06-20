@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Column {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         CantaApp(
                             launchShizuku = {
                                 // Open shizuku app
@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
                             uninstallApp = { uninstallApp(it) },
                             reinstallApp = { reinstallApp(it) },
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
                         ADBTerminal()
                     }
                 }
